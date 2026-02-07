@@ -65,13 +65,17 @@ except ImportError:
 # --- DB Handler Class ---
 class DBHandler:
     def __init__(self):
-        self.use_gsheets = False
+        self.use_gsheets = True  # Force Google Sheets usage
+        self.conn = None
         try:
-            if GSheetsConnection and "connections" in st.secrets and "gsheets" in st.secrets.connections:
-                self.use_gsheets = True
+            # Try to establish Google Sheets connection
+            if GSheetsConnection:
                 self.conn = st.connection("gsheets", type=GSheetsConnection)
-        except Exception:
+                print("✅ Google Sheets connection established")
+        except Exception as e:
+            print(f"❌ Google Sheets connection failed: {e}")
             self.use_gsheets = False
+            st.error("❌ Google Sheets connection failed. Please configure your Google Sheets credentials in Streamlit secrets.")
             
     def init_db(self):
         if self.use_gsheets:
@@ -109,9 +113,14 @@ class DBHandler:
                     self.conn.update(data=initial_data)
                     print("Initialized new Google Sheet database with all SaaS columns.")
             except Exception as e:
-                # If it's a connection error, DON'T initialize/overwrite
-                print(f"Warning: Could not connect to Google Sheets: {e}")
-                # We don't set self.use_gsheets = False here because it might be transient
+                # If it's a connection error, show clear error message
+                print(f"❌ Google Sheets initialization failed: {e}")
+                st.error("❌ Google Sheets connection failed. Please check your configuration in `.streamlit/secrets.toml`")
+                st.info("""🔧 To fix this:
+1. Follow `GOOGLE_SHEETS_SETUP.md` to create your Google Sheets setup
+2. Update `.streamlit/secrets.toml` with your credentials
+3. Restart the application""")
+                return
         else:
             # SQLite Logic
             conn = sqlite3.connect(DB_PATH)
